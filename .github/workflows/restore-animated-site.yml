@@ -1,0 +1,44 @@
+name: Restore animated Week 3 site
+
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-animated-site.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Restore the complete animated website
+        shell: python
+        run: |
+          from pathlib import Path
+          import base64
+          import gzip
+
+          payload = Path('payload/rich_site.b64').read_text(encoding='utf-8').strip()
+          html = gzip.decompress(base64.b64decode(payload)).decode('utf-8')
+
+          assert len(html) > 100_000, 'Decoded website is unexpectedly small'
+          assert html.count('@keyframes') >= 6, 'Animation definitions are missing'
+          assert 'IntersectionObserver' in html, 'Scroll reveal animations are missing'
+          assert 'scrollIntoView' not in html, 'Initial auto-scroll bug is still present'
+          assert "scrollRestoration='manual'" in html, 'Scroll restoration guard is missing'
+
+          Path('index.html').write_text(html, encoding='utf-8')
+
+      - name: Commit restored site
+        run: |
+          rm -rf payload
+          rm -f .github/workflows/restore-animated-site.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Restore full animated interactive Week 3 website"
+          git push
