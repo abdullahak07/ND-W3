@@ -15,16 +15,18 @@ html,body{height:100%;margin:0;background:#050a12;color:#eef8ff;font-family:syst
 (async()=>{
   try{
     if('scrollRestoration' in history) history.scrollRestoration='manual';
-    const response=await fetch('./payload/rich_site.b64',{cache:'no-store'});
-    if(!response.ok) throw new Error(`Website payload could not be loaded (${response.status}).`);
-    const encoded=(await response.text()).trim();
+    const paths=['./payload/rich_site_1.b64','./payload/rich_site_gap.b64','./payload/rich_site.b64'];
+    const responses=await Promise.all(paths.map(path=>fetch(path,{cache:'no-store'})));
+    responses.forEach((response,index)=>{if(!response.ok) throw new Error(`Website payload part ${index+1} could not be loaded (${response.status}).`)});
+    const encoded=(await Promise.all(responses.map(response=>response.text()))).map(text=>text.trim()).join('');
+    if(!encoded.startsWith('H4sI')) throw new Error('The animated website payload is incomplete.');
     const binary=atob(encoded);
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-    if(typeof DecompressionStream==='undefined') throw new Error('This browser does not support the required decompression feature. Please open the site in an up-to-date Chrome, Edge, Firefox, or Safari browser.');
+    if(typeof DecompressionStream==='undefined') throw new Error('Please open the site in an up-to-date Chrome, Edge, Firefox, or Safari browser.');
     const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
     const html=await new Response(stream).text();
-    if(!html.includes('17 visual interactions')||!html.includes('@keyframes')) throw new Error('The animated website payload failed validation.');
+    if(!html.includes('17 visual interactions')||!html.includes('@keyframes')||!html.includes('IntersectionObserver')) throw new Error('The animated website payload failed validation.');
     document.open();
     document.write(html);
     document.close();
